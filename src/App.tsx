@@ -24,7 +24,6 @@ import {
   X,
   User,
   Paperclip,
-  Upload,
   File,
   CheckCircle2
 } from 'lucide-react';
