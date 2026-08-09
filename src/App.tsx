@@ -4,7 +4,6 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
-  AlertCircle,
   FileSpreadsheet,
   Sparkles,
   Clock,
@@ -15,22 +14,19 @@ import {
   Download,
   Tag,
   BookOpen,
-  Layers,
-  Edit3,
-  Code,
-  FileCheck,
   Save,
-  CheckCircle2,
-  AlertTriangle,
   Send,
   Copy,
-  Calculator,
   Bot,
   Trash2,
   Check,
   RefreshCw,
   X,
-  History
+  User,
+  Paperclip,
+  Upload,
+  File,
+  CheckCircle2
 } from 'lucide-react';
 
 // ==========================================
@@ -48,33 +44,31 @@ export interface DatasetFile {
 }
 
 export interface ScenarioItem {
-  id: string; // e.g. "1-1"
-  code: string; // e.g. "1-1"
-  title: string; // e.g. "데이터의 이해와 척도"
-  keyword: string; // e.g. "측정 척도 (Measurement Scale)"
-  scenarioText: string; // ~300 character industry scenario testing the keyword
-  guidingQuestion: string; // Specific task/question for student
+  id: string;
+  code: string;
+  title: string;
+  keyword: string;
+  scenarioText: string;
+  guidingQuestion: string;
   datasets: DatasetFile[];
 }
 
 export interface ModuleCategory {
   id: number;
-  title: string; // e.g. "1. 기술통계 (Descriptive Statistics)"
+  title: string;
   subItems: ScenarioItem[];
 }
 
-export interface StudentSubmission {
-  scenarioId: string;
-  textContent: string;
-  codeContent: string;
-  summaryContent: string;
-  submittedAt?: string;
-  evaluation?: {
-    score: number;
-    strengths: string[];
-    improvements: string[];
-    feedbackText: string;
-  };
+export interface Examinee {
+  name: string;
+  jobGroup: '제조직군' | '비제조직군';
+}
+
+export interface AttachedFile {
+  id: string;
+  name: string;
+  size: string;
+  type: string;
 }
 
 export interface ChatMessage {
@@ -85,7 +79,19 @@ export interface ChatMessage {
 }
 
 // ==========================================
-// 2. MODULES & SCENARIOS DATA (13 Modules)
+// 2. EXAMINEE CANDIDATES DATA
+// ==========================================
+
+export const EXAMINEES: Examinee[] = [
+  { name: '박지성', jobGroup: '제조직군' },
+  { name: '이영표', jobGroup: '제조직군' },
+  { name: '손흥민', jobGroup: '제조직군' },
+  { name: '박찬호', jobGroup: '비제조직군' },
+  { name: '류현진', jobGroup: '비제조직군' },
+];
+
+// ==========================================
+// 3. MODULES & SCENARIOS DATA (13 Modules)
 // ==========================================
 
 function generateDatasets(code: string, keyword: string): DatasetFile[] {
@@ -607,12 +613,28 @@ export const MODULES_DATA: ModuleCategory[] = [
   }
 ];
 
+// Helper to pick random scenario based on jobGroup
+function getRandomScenarioByJobGroup(jobGroup: '제조직군' | '비제조직군'): { scenario: ScenarioItem; moduleTitle: string } {
+  let allowedModules = MODULES_DATA;
+  if (jobGroup === '비제조직군') {
+    // Exclude modules 3, 4, 5, 6
+    allowedModules = MODULES_DATA.filter(m => m.id !== 3 && m.id !== 4 && m.id !== 5 && m.id !== 6);
+  }
+  const randomModule = allowedModules[Math.floor(Math.random() * allowedModules.length)];
+  const randomSub = randomModule.subItems[Math.floor(Math.random() * randomModule.subItems.length)];
+  return { scenario: randomSub, moduleTitle: randomModule.title };
+}
+
 // ==========================================
-// 3. SUB COMPONENTS
+// 4. SUB COMPONENTS
 // ==========================================
 
 // --- HEADER NOTICE COMPONENT ---
-const HeaderNotice: React.FC = () => {
+interface HeaderNoticeProps {
+  examinee: Examinee;
+}
+
+const HeaderNotice: React.FC<HeaderNoticeProps> = ({ examinee }) => {
   const [expanded, setExpanded] = useState(true);
 
   return (
@@ -623,28 +645,39 @@ const HeaderNotice: React.FC = () => {
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-white">
-                교육생 모듈별 검증시험 평가 시스템
-              </h1>
-              <span className="px-2 py-0.5 text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full">
-                LIVE VERIFICATION TEST
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              13개 모듈별 역량 검증 • 현업 시나리오 문제 분석 • 데이터 첨부파일 연동 및 실시간 AI 가채점
-            </p>
+            <h1 className="text-xl font-bold tracking-tight text-white">
+              GDX 문제해결 역량 평가
+            </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 rounded-lg border border-slate-700 text-xs">
-            <Clock className="w-3.5 h-3.5 text-blue-400" />
-            <span className="text-slate-300 font-medium">권장 응시 시간: 모듈당 20분</span>
+        {/* Examinee & System Status Badges */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Examinee Info Badge */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-900/40 rounded-lg border border-blue-700/60 text-xs">
+            <User className="w-4 h-4 text-blue-400" />
+            <div className="flex items-center gap-1.5 font-medium">
+              <span className="text-slate-300">응시자:</span>
+              <span className="text-white font-bold">{examinee.name}</span>
+              <span className="text-slate-400">|</span>
+              <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                examinee.jobGroup === '제조직군'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              }`}>
+                {examinee.jobGroup}
+              </span>
+            </div>
           </div>
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 rounded-lg border border-slate-700 text-xs">
+
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 rounded-lg border border-slate-700 text-xs">
+            <Clock className="w-3.5 h-3.5 text-blue-400" />
+            <span className="text-slate-300 font-medium">응시제한시간 60분</span>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 rounded-lg border border-slate-700 text-xs">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-slate-300 font-medium">생성형 AI 어시스턴트 동작 중</span>
+            <span className="text-slate-300 font-medium">생성형 AI 동작 중</span>
           </div>
 
           <button
@@ -660,52 +693,33 @@ const HeaderNotice: React.FC = () => {
 
       {expanded && (
         <div className="bg-slate-800/90 border-t border-slate-700/80 px-4 sm:px-6 lg:px-8 py-4 animate-in slide-in-from-top-2 duration-200">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="bg-slate-900/60 p-3.5 rounded-lg border border-slate-700/60">
-              <div className="flex items-center gap-2 font-semibold text-blue-300 mb-1.5">
-                <Target className="w-4 h-4 text-blue-400" />
-                <span>1. 검증 시험 개요 및 유의사항</span>
-              </div>
-              <ul className="space-y-1 text-slate-300 list-disc list-inside leading-relaxed">
-                <li>본 시험은 교육 과정 이수 후 모듈별 핵심 키워드 이해도를 측정합니다.</li>
-                <li>좌측 드릴다운 메뉴에서 응시할 모듈 및 세부 항목을 선택하십시오.</li>
-                <li>제공된 300자 시나리오 문제와 데이터셋을 기반으로 답안을 작성합니다.</li>
-              </ul>
+          <div className="max-w-7xl mx-auto text-xs bg-slate-900/80 p-4 rounded-xl border border-slate-700/80 shadow-inner">
+            <div className="flex items-center gap-2 font-bold text-blue-300 mb-2.5 text-sm">
+              <Target className="w-4 h-4 text-blue-400" />
+              <span>■ 시험 안내 및 유의사항</span>
             </div>
-
-            <div className="bg-slate-900/60 p-3.5 rounded-lg border border-slate-700/60">
-              <div className="flex items-center gap-2 font-semibold text-emerald-300 mb-1.5">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                <span>2. 첨부 데이터 & 답안 작성법</span>
-              </div>
-              <ul className="space-y-1 text-slate-300 list-disc list-inside leading-relaxed">
-                <li>시나리오별로 3개의 실습 데이터(CSV/XLSX)가 기본 첨부되어 있습니다.</li>
-                <li>[미리보기 / 다운로드 / 답안 삽입] 기능으로 데이터를 활용하십시오.</li>
-                <li>가운데 답안 작성란에 이론 설명, 공식, Minitab/Python 코드를 입력합니다.</li>
-              </ul>
-            </div>
-
-            <div className="bg-slate-900/60 p-3.5 rounded-lg border border-slate-700/60">
-              <div className="flex items-center gap-2 font-semibold text-amber-300 mb-1.5">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <span>3. 생성형 AI 어시스턴트 & 가채점</span>
-              </div>
-              <ul className="space-y-1 text-slate-300 list-disc list-inside leading-relaxed">
-                <li>우측 생성형 AI 패널에서 개념 질의 및 코드 힌트를 요청할 수 있습니다.</li>
-                <li>[실시간 AI 가채점] 버튼을 클릭하면 AI 채점관의 점수와 피드백을 받습니다.</li>
-                <li>평가 기준: 시나리오 이해(30%) + 분석 및 코드(40%) + 결론 타당성(30%)</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="max-w-7xl mx-auto mt-3 pt-2.5 border-t border-slate-700/50 flex flex-wrap items-center justify-between text-[11px] text-slate-400">
-            <div className="flex items-center gap-1.5 text-amber-300 font-medium">
-              <AlertCircle className="w-3.5 h-3.5" />
-              <span>* 작성하신 답안은 브라우저에 자동 저장되며 [최종 시험 제출] 시 저장소로 전송됩니다.</span>
-            </div>
-            <div className="text-slate-400">
-              시험 문의: 품질교육원 통계검증위원회 (support@quality-exam.kr)
-            </div>
+            <ol className="space-y-1.5 text-slate-200 list-none leading-relaxed font-normal">
+              <li className="flex items-start gap-2">
+                <span className="font-semibold text-blue-400 shrink-0">1.</span>
+                <span>아래에 제시된 시나리오 상황과 주어진 데이터를 바탕으로 문제를 정의하세요.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="font-semibold text-blue-400 shrink-0">2.</span>
+                <span>생성형 AI 를 이용하여 데이터를 분석하고, 문제 상황에 대한 해결책을 제시하세요.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="font-semibold text-blue-400 shrink-0">3.</span>
+                <span>생성형 AI 에 입력 된 프롬프트와 제공된 답변 및 최종 작성하신 답안 모두 평가의 대상이 됩니다.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="font-semibold text-blue-400 shrink-0">4.</span>
+                <span>제출하고자 하는 첨부자료가 있다면 첨부하기 기능을 활용하세요.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="font-semibold text-blue-400 shrink-0">5.</span>
+                <span>최종 시험 제출 버튼을 누르면 현재까지 입력된 프롬프트와 답변 및 첨부자료가 모두 최종 저장되어 제출됩니다.</span>
+              </li>
+            </ol>
           </div>
         </div>
       )}
@@ -803,7 +817,7 @@ const DatasetViewerModal: React.FC<DatasetViewerModalProps> = ({
                 }}
                 className="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors shadow-xs"
               >
-                답안지에 데이터 삽입
+                답안지에 데이터 참조 삽입
               </button>
             )}
             <button
@@ -878,39 +892,20 @@ const DatasetViewerModal: React.FC<DatasetViewerModalProps> = ({
 
 // --- LEFT COLUMN COMPONENT ---
 interface LeftColumnProps {
-  modules: ModuleCategory[];
-  selectedScenario: ScenarioItem;
-  onSelectScenario: (scenario: ScenarioItem) => void;
+  scenario: ScenarioItem;
+  moduleTitle: string;
+  examinee: Examinee;
   onViewDataset: (dataset: DatasetFile) => void;
+  onRegenerateScenario: () => void;
 }
 
 const LeftColumn: React.FC<LeftColumnProps> = ({
-  modules,
-  selectedScenario,
-  onSelectScenario,
-  onViewDataset
+  scenario,
+  moduleTitle,
+  examinee,
+  onViewDataset,
+  onRegenerateScenario
 }) => {
-  const currentModule = modules.find(m => m.subItems.some(sub => sub.id === selectedScenario.id)) || modules[0];
-
-  const handleModuleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const moduleId = Number(e.target.value);
-    const mod = modules.find(m => m.id === moduleId);
-    if (mod && mod.subItems.length > 0) {
-      onSelectScenario(mod.subItems[0]);
-    }
-  };
-
-  const handleSubItemChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const subId = e.target.value;
-    for (const m of modules) {
-      const found = m.subItems.find(sub => sub.id === subId);
-      if (found) {
-        onSelectScenario(found);
-        break;
-      }
-    }
-  };
-
   const downloadDirectCsv = (ds: DatasetFile, e: React.MouseEvent) => {
     e.stopPropagation();
     const headerRow = ds.headers.join(',');
@@ -928,100 +923,75 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 flex flex-col gap-4 h-full overflow-hidden">
-      <div className="border-b border-slate-200 pb-3">
-        <div className="flex items-center gap-2 mb-2 text-slate-800 font-bold text-base">
-          <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg">
-            <Layers className="w-5 h-5" />
+      {/* Header Info Banner */}
+      <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2 py-0.5 text-[11px] font-bold bg-blue-600 text-white rounded">
+              랜덤 배정 시나리오
+            </span>
+            <span className="text-xs font-semibold text-slate-500">
+              {moduleTitle}
+            </span>
           </div>
-          <h2>모듈 별 시나리오를 선택하시오</h2>
+          <p className="text-[11px] text-slate-500">
+            {examinee.jobGroup === '제조직군'
+              ? '제조직군 특성에 맞게 1~13 전체 모듈 중 무작위 추첨된 평가 문제입니다.'
+              : '비제조직군 특성에 맞게 (3, 4, 5, 6 모듈 제외) 무작위 추첨된 평가 문제입니다.'}
+          </p>
         </div>
-        <p className="text-xs text-slate-500">
-          13개 교육 모듈 및 65개 검증 시나리오 중 분석할 대상을 드릴다운 선택하세요.
-        </p>
 
-        <div className="mt-3 space-y-2">
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-              STEP 1. 대모듈 선택 (13개)
-            </label>
-            <select
-              value={currentModule.id}
-              onChange={handleModuleChange}
-              className="w-full text-xs font-semibold bg-slate-50 border border-slate-300 text-slate-800 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none transition-all cursor-pointer"
-            >
-              {modules.map(mod => (
-                <option key={mod.id} value={mod.id}>
-                  {mod.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-              STEP 2. 세부 검증 항목 및 키워드 선택 (5개)
-            </label>
-            <select
-              value={selectedScenario.id}
-              onChange={handleSubItemChange}
-              className="w-full text-xs font-semibold bg-blue-50/80 border border-blue-300 text-blue-900 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none transition-all cursor-pointer"
-            >
-              {currentModule.subItems.map(sub => (
-                <option key={sub.id} value={sub.id}>
-                  {sub.title} ➔ [{sub.keyword}]
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <button
+          onClick={onRegenerateScenario}
+          className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors border border-slate-300 shrink-0"
+          title="새 시나리오 랜덤 재배정"
+        >
+          시나리오 재배정
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+        {/* Scenario Card */}
         <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
           <div className="flex items-center justify-between mb-2">
             <span className="px-2.5 py-1 text-[11px] font-bold bg-blue-600 text-white rounded-md tracking-wider">
-              시나리오 ID: {selectedScenario.code}
+              시나리오 ID: {scenario.code}
             </span>
             <div className="flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-md border border-blue-200">
               <Tag className="w-3 h-3" />
-              <span>{selectedScenario.keyword}</span>
+              <span>{scenario.keyword}</span>
             </div>
           </div>
 
           <h3 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-1.5">
             <BookOpen className="w-4 h-4 text-blue-600" />
-            {selectedScenario.title}
+            {scenario.title}
           </h3>
 
           <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs mb-3">
             <div className="text-xs text-slate-700 leading-relaxed font-normal whitespace-pre-line">
-              {selectedScenario.scenarioText}
-            </div>
-            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
-              <span>글자 수: 약 {selectedScenario.scenarioText.length}자</span>
-              <span className="text-blue-600 font-medium flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> 검증 시나리오
-              </span>
+              {scenario.scenarioText}
             </div>
           </div>
 
           <div className="bg-amber-50/80 border border-amber-200 rounded-lg p-3 text-xs text-amber-900">
             <span className="font-bold text-amber-800 block mb-1">🎯 검증 문제 (Task):</span>
-            <p className="leading-relaxed">{selectedScenario.guidingQuestion}</p>
+            <p className="leading-relaxed">{scenario.guidingQuestion}</p>
           </div>
         </div>
 
+        {/* Datasets */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
               <Database className="w-4 h-4 text-emerald-600" />
-              <span>제공 데이터 첨부파일 (3개)</span>
+              <span>제공 데이터 첨부파일 ({scenario.datasets.length}개)</span>
             </div>
             <span className="text-[11px] text-slate-500 font-medium">CSV / XLSX</span>
           </div>
 
           <div className="space-y-2">
-            {selectedScenario.datasets.map((ds) => (
+            {scenario.datasets.map((ds) => (
               <div
                 key={ds.id}
                 onClick={() => onViewDataset(ds)}
@@ -1071,56 +1041,42 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
 
 // --- MIDDLE COLUMN COMPONENT ---
 interface MiddleColumnProps {
-  scenario: ScenarioItem;
-  submission: StudentSubmission;
-  onUpdateSubmission: (updated: Partial<StudentSubmission>) => void;
-  onEvaluate: () => void;
+  answerText: string;
+  onUpdateAnswer: (text: string) => void;
+  attachedFiles: AttachedFile[];
+  onAddAttachedFiles: (files: FileList) => void;
+  onRemoveAttachedFile: (id: string) => void;
   onSubmitFinal: () => void;
-  isEvaluating: boolean;
 }
 
 const MiddleColumn: React.FC<MiddleColumnProps> = ({
-  scenario,
-  submission,
-  onUpdateSubmission,
-  onEvaluate,
+  answerText,
+  onUpdateAnswer,
+  attachedFiles,
+  onAddAttachedFiles,
+  onRemoveAttachedFile,
   onSubmitFinal,
-  isEvaluating,
 }) => {
-  const [activeTab, setActiveTab] = useState<'text' | 'code' | 'summary'>('text');
   const [saveToast, setSaveToast] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleManualSave = () => {
     setSaveToast(true);
     setTimeout(() => setSaveToast(false), 2000);
   };
 
-  const insertSymbol = (symbol: string) => {
-    if (activeTab === 'text') {
-      onUpdateSubmission({ textContent: submission.textContent + ' ' + symbol + ' ' });
-    } else if (activeTab === 'code') {
-      onUpdateSubmission({ codeContent: submission.codeContent + ' ' + symbol + ' ' });
-    } else {
-      onUpdateSubmission({ summaryContent: submission.summaryContent + ' ' + symbol + ' ' });
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      onAddAttachedFiles(e.target.files);
+      e.target.value = '';
     }
   };
 
-  const symbolsList = ['μ', 'σ', 'σ²', 'p-value', 'R²', 'Cpk', 'Cp', 'H₀', 'H₁', 'α', 'β', 'Xbar', 't-stat', 'F-stat', 'χ²'];
-
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 flex flex-col gap-3 h-full overflow-hidden">
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg">
-            <Edit3 className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-slate-800 font-bold text-base">답안 작성 공란</h2>
-            <p className="text-xs text-slate-500">
-              선택한 [{scenario.code} {scenario.keyword}] 시나리오에 대한 분석 답안 및 코드를 작성하십시오.
-            </p>
-          </div>
-        </div>
+        <h2 className="text-slate-800 font-bold text-base">답변 작성</h2>
 
         {saveToast && (
           <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 animate-in fade-in">
@@ -1129,165 +1085,81 @@ const MiddleColumn: React.FC<MiddleColumnProps> = ({
         )}
       </div>
 
-      <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-wrap items-center gap-1.5 text-xs">
-        <div className="flex items-center gap-1 text-slate-500 font-semibold mr-1">
-          <Calculator className="w-3.5 h-3.5 text-blue-600" />
-          <span>기호/공식:</span>
-        </div>
-        {symbolsList.map((sym) => (
-          <button
-            key={sym}
-            onClick={() => insertSymbol(sym)}
-            className="px-2 py-0.5 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 font-mono font-medium rounded border border-slate-200 transition-colors shadow-2xs"
-            title={`${sym} 기호 삽입`}
-          >
-            {sym}
-          </button>
-        ))}
+      {/* Main Text Area - Blank with no placeholders or pre-filled texts */}
+      <div className="flex-1 min-h-[300px] relative flex flex-col">
+        <textarea
+          value={answerText}
+          onChange={(e) => onUpdateAnswer(e.target.value)}
+          placeholder=""
+          className="w-full h-full p-4 text-xs text-slate-800 bg-slate-50/50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none leading-relaxed font-sans"
+        />
       </div>
 
-      <div className="flex items-center border-b border-slate-200 gap-2">
-        <button
-          onClick={() => setActiveTab('text')}
-          className={`px-3.5 py-2 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
-            activeTab === 'text'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <FileCheck className="w-3.5 h-3.5" />
-          1. 서술형 분석 답안
-        </button>
-        <button
-          onClick={() => setActiveTab('code')}
-          className={`px-3.5 py-2 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
-            activeTab === 'code'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <Code className="w-3.5 h-3.5" />
-          2. 분석 스크립트 및 공식
-        </button>
-        <button
-          onClick={() => setActiveTab('summary')}
-          className={`px-3.5 py-2 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
-            activeTab === 'summary'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          3. 결론 및 개선 대안
-        </button>
-      </div>
-
-      <div className="flex-1 min-h-[220px] relative flex flex-col">
-        {activeTab === 'text' && (
-          <textarea
-            value={submission.textContent}
-            onChange={(e) => onUpdateSubmission({ textContent: e.target.value })}
-            placeholder={`[${scenario.keyword} 핵심 개념 및 문제 해결 로직 서술]\n\n예시:\n1. 본 시나리오 문제 상황의 핵심 원인 분석:\n2. 적용할 통계적/기술적 접근 방법:\n3. 가설 설정 및 유의수준(alpha=0.05) 판단 근거:`}
-            className="w-full h-full p-3 text-xs text-slate-800 bg-slate-50/50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none leading-relaxed font-sans"
-          />
-        )}
-
-        {activeTab === 'code' && (
-          <div className="w-full h-full flex flex-col">
-            <textarea
-              value={submission.codeContent}
-              onChange={(e) => onUpdateSubmission({ codeContent: e.target.value })}
-              placeholder={`# Minitab 메뉴 경로 또는 Python/SQL 코드 입력란\n\nimport pandas as pd\nimport scipy.stats as stats\n\n# 1. 데이터 로드 및 전처리\ndf = pd.read_csv('raw_data_${scenario.code.replace('-', '_')}.csv')\n\n# 2. 통계 검정 실행\n# stats.ttest_ind(...)`}
-              className="w-full h-full p-3 text-xs text-slate-900 bg-slate-900 text-emerald-400 font-mono border border-slate-800 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none leading-relaxed"
-            />
+      {/* Attached Files Display */}
+      {attachedFiles.length > 0 && (
+        <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1.5">
+          <div className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+            <Paperclip className="w-3.5 h-3.5 text-blue-600" />
+            <span>첨부된 자료 ({attachedFiles.length}개)</span>
           </div>
-        )}
-
-        {activeTab === 'summary' && (
-          <textarea
-            value={submission.summaryContent}
-            onChange={(e) => onUpdateSubmission({ summaryContent: e.target.value })}
-            placeholder={`[최종 요약 결론 및 개선 대안]\n\n1. 통계적 판단 결론:\n2. 현업 개선 조치 방안 (Control Plan / SOP):\n3. 기대 효과 및 리스크 대책:`}
-            className="w-full h-full p-3 text-xs text-slate-800 bg-slate-50/50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none leading-relaxed font-sans"
-          />
-        )}
-      </div>
-
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
-        <button
-          onClick={handleManualSave}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors border border-slate-300"
-        >
-          <Save className="w-3.5 h-3.5" />
-          임시 저장
-        </button>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onEvaluate}
-            disabled={isEvaluating}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors shadow-xs disabled:opacity-50"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            {isEvaluating ? 'AI 채점 중...' : '실시간 AI 가채점'}
-          </button>
-
-          <button
-            onClick={onSubmitFinal}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-xs"
-          >
-            <Send className="w-3.5 h-3.5" />
-            최종 시험 제출
-          </button>
-        </div>
-      </div>
-
-      {submission.evaluation && (
-        <div className="bg-slate-900 text-slate-100 rounded-xl p-4 border border-slate-800 space-y-3 animate-in fade-in duration-300 mt-1">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <div className="flex items-center gap-2">
-              <span className="p-1 bg-amber-500/20 text-amber-400 rounded">
-                <Sparkles className="w-4 h-4" />
-              </span>
-              <h3 className="font-bold text-sm text-amber-300">AI 가채점 결과 리포트</h3>
-            </div>
-            <div className="text-right">
-              <span className="text-2xl font-extrabold text-emerald-400">
-                {submission.evaluation.score}
-              </span>
-              <span className="text-xs text-slate-400 font-normal"> / 100점</span>
-            </div>
-          </div>
-
-          <p className="text-xs text-slate-300 leading-relaxed bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-            {submission.evaluation.feedbackText}
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-            <div className="bg-emerald-950/40 p-2.5 rounded-lg border border-emerald-800/50">
-              <span className="font-bold text-emerald-400 block mb-1 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> 우수한 점 (Strengths):
-              </span>
-              <ul className="list-disc list-inside space-y-0.5 text-slate-300 text-[11px]">
-                {submission.evaluation.strengths.map((s, idx) => (
-                  <li key={idx}>{s}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="bg-amber-950/40 p-2.5 rounded-lg border border-amber-800/50">
-              <span className="font-bold text-amber-400 block mb-1 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" /> 보완할 점 (Improvements):
-              </span>
-              <ul className="list-disc list-inside space-y-0.5 text-slate-300 text-[11px]">
-                {submission.evaluation.improvements.map((imp, idx) => (
-                  <li key={idx}>{imp}</li>
-                ))}
-              </ul>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            {attachedFiles.map((file) => (
+              <div
+                key={file.id}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-300 rounded-md text-xs text-slate-700 shadow-2xs"
+              >
+                <File className="w-3.5 h-3.5 text-slate-500" />
+                <span className="font-medium truncate max-w-[150px]">{file.name}</span>
+                <span className="text-[10px] text-slate-400">({file.size})</span>
+                <button
+                  onClick={() => onRemoveAttachedFile(file.id)}
+                  className="p-0.5 hover:text-rose-600 text-slate-400 rounded"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}
+
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        multiple
+        className="hidden"
+      />
+
+      {/* Action Buttons */}
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleManualSave}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors border border-slate-300"
+          >
+            <Save className="w-3.5 h-3.5" />
+            임시 저장
+          </button>
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 rounded-lg transition-colors"
+          >
+            <Paperclip className="w-3.5 h-3.5" />
+            첨부하기
+          </button>
+        </div>
+
+        <button
+          onClick={onSubmitFinal}
+          className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-xs"
+        >
+          <Send className="w-3.5 h-3.5" />
+          최종 시험 제출
+        </button>
+      </div>
     </div>
   );
 };
@@ -1303,7 +1175,7 @@ const RightColumn: React.FC<RightColumnProps> = ({ currentScenario }) => {
     {
       id: 'welcome_msg',
       sender: 'assistant',
-      text: `안녕하세요! 학습자를 보조하는 **보급형 생성형 AI**입니다. 🤖\n\n현재 선택된 시나리오: **[${currentScenario.code}] ${currentScenario.title}**\n핵심 키워드: \`${currentScenario.keyword}\`\n\n통계 공식, Minitab / Python 코드 작성 방법, 가설검정 해석 가이드 등 학습 과정에서 궁금한 점을 질문해 주세요!`,
+      text: `안녕하세요! 학습자를 보조하는 **생성형 AI**입니다. 🤖\n\n현재 시나리오 [${currentScenario.code}]에 대해 데이터 분석 방법, 파이썬/미니탭 코드 힌트, 통계 원리 등 궁금한 사항을 자유롭게 질문하세요!`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -1383,17 +1255,16 @@ const RightColumn: React.FC<RightColumnProps> = ({ currentScenario }) => {
       {
         id: `welcome_${Date.now()}`,
         sender: 'assistant',
-        text: `대화 내용이 초기화되었습니다.\n현재 시나리오 **[${currentScenario.code}] ${currentScenario.keyword}**에 대해 자유롭게 질의하십시오.`,
+        text: `대화 내용이 초기화되었습니다.\n현재 시나리오에 대해 자유롭게 질의하십시오.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
     ]);
   };
 
   const quickPrompts = [
-    `💡 ${currentScenario.keyword} 핵심 개념 쉽게 설명해줘`,
-    `📊 Minitab / Python 분석 코드 힌트 줘`,
-    `📐 통계 공식 및 산출식 가이드`,
-    `🎯 가설검정 p-value 해석하는 법`
+    `💡 ${currentScenario.keyword} 핵심 개념 설명해줘`,
+    `📊 분석 스크립트 및 코드 힌트 줘`,
+    `🎯 문제 상황 해결을 위한 접근 방식 가이드`
   ];
 
   return (
@@ -1405,13 +1276,13 @@ const RightColumn: React.FC<RightColumnProps> = ({ currentScenario }) => {
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h2 className="text-slate-800 font-bold text-base">보급형 생성형 AI</h2>
+              <h2 className="text-slate-800 font-bold text-base">생성형 AI</h2>
               <span className="px-1.5 py-0.2 text-[10px] font-bold bg-purple-100 text-purple-800 rounded border border-purple-200">
                 GEMINI
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              학습자 전용 1:1 통계 및 분석 어시스턴트
+              문제 분석 및 답변 작성을 돕는 1:1 AI 어시스턴트
             </p>
           </div>
         </div>
@@ -1423,15 +1294,6 @@ const RightColumn: React.FC<RightColumnProps> = ({ currentScenario }) => {
         >
           <Trash2 className="w-4 h-4" />
         </button>
-      </div>
-
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 flex items-center justify-between text-xs text-purple-900">
-        <span className="font-semibold truncate">
-          📍 현재 맥락: [{currentScenario.code}] {currentScenario.keyword}
-        </span>
-        <span className="text-[10px] bg-purple-200/80 px-1.5 py-0.5 rounded text-purple-800 font-medium">
-          실시간 연동
-        </span>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
@@ -1454,7 +1316,7 @@ const RightColumn: React.FC<RightColumnProps> = ({ currentScenario }) => {
             className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
           >
             <div className="flex items-center gap-1.5 mb-1 text-[10px] text-slate-400">
-              <span>{msg.sender === 'user' ? '학습자 (You)' : '보급형 생성형 AI'}</span>
+              <span>{msg.sender === 'user' ? '응시자' : '생성형 AI'}</span>
               <span>•</span>
               <span>{msg.timestamp}</span>
             </div>
@@ -1486,7 +1348,7 @@ const RightColumn: React.FC<RightColumnProps> = ({ currentScenario }) => {
         {loading && (
           <div className="flex items-center gap-2 text-xs text-purple-600 bg-purple-50/80 p-2.5 rounded-lg border border-purple-200 animate-pulse">
             <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-600" />
-            <span>생성형 AI가 시나리오와 질문을 분석하여 답변을 생성하고 있습니다...</span>
+            <span>생성형 AI가 분석 답변을 생성하고 있습니다...</span>
           </div>
         )}
         <div ref={chatBottomRef} />
@@ -1519,213 +1381,115 @@ const RightColumn: React.FC<RightColumnProps> = ({ currentScenario }) => {
 };
 
 // ==========================================
-// 4. MAIN APP COMPONENT
+// 5. MAIN APP COMPONENT
 // ==========================================
 
 export default function App() {
-  const [selectedScenario, setSelectedScenario] = useState<ScenarioItem>(
-    MODULES_DATA[0].subItems[0]
-  );
-  const [activeDataset, setActiveDataset] = useState<DatasetFile | null>(null);
+  // Random examinee selected on connection/refresh
+  const [examinee, setExaminee] = useState<Examinee>(EXAMINEES[0]);
 
-  const [submissions, setSubmissions] = useState<Record<string, StudentSubmission>>({});
-  const [isEvaluating, setIsEvaluating] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  // Selected random scenario and its module title
+  const [assignedScenario, setAssignedScenario] = useState<{
+    scenario: ScenarioItem;
+    moduleTitle: string;
+  }>({
+    scenario: MODULES_DATA[0].subItems[0],
+    moduleTitle: MODULES_DATA[0].title
+  });
+
+  const [activeDataset, setActiveDataset] = useState<DatasetFile | null>(null);
+  const [answerText, setAnswerText] = useState<string>('');
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [finalSubmitToast, setFinalSubmitToast] = useState(false);
 
+  // Initialize random examinee and scenario on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('exam_submissions_v1');
-      if (saved) {
-        setSubmissions(JSON.parse(saved));
-      }
-    } catch (e) {
-      console.error('Failed to load local submissions:', e);
-    }
+    const pickedExaminee = EXAMINEES[Math.floor(Math.random() * EXAMINEES.length)];
+    setExaminee(pickedExaminee);
+
+    const pickedScenario = getRandomScenarioByJobGroup(pickedExaminee.jobGroup);
+    setAssignedScenario(pickedScenario);
   }, []);
 
-  const saveSubmissions = (updated: Record<string, StudentSubmission>) => {
-    setSubmissions(updated);
-    try {
-      localStorage.setItem('exam_submissions_v1', JSON.stringify(updated));
-    } catch (e) {
-      console.error('Failed to persist submissions:', e);
-    }
+  const handleRegenerateScenario = () => {
+    const newScenario = getRandomScenarioByJobGroup(examinee.jobGroup);
+    setAssignedScenario(newScenario);
   };
 
-  const currentSubmission: StudentSubmission = submissions[selectedScenario.id] || {
-    scenarioId: selectedScenario.id,
-    textContent: '',
-    codeContent: '',
-    summaryContent: ''
+  const handleAddAttachedFiles = (files: FileList) => {
+    const newFiles: AttachedFile[] = Array.from(files).map((f, i) => ({
+      id: `att_${Date.now()}_${i}`,
+      name: f.name,
+      size: `${(f.size / 1024).toFixed(1)} KB`,
+      type: f.type || 'file'
+    }));
+    setAttachedFiles(prev => [...prev, ...newFiles]);
   };
 
-  const handleUpdateSubmission = (updated: Partial<StudentSubmission>) => {
-    const nextSub: StudentSubmission = {
-      ...currentSubmission,
-      ...updated,
-      scenarioId: selectedScenario.id
-    };
-    const nextMap = {
-      ...submissions,
-      [selectedScenario.id]: nextSub
-    };
-    saveSubmissions(nextMap);
-  };
-
-  const handleEvaluate = async () => {
-    if (!currentSubmission.textContent && !currentSubmission.codeContent) {
-      alert('가채점을 진행하려면 서술형 답안 또는 분석 코드를 입력하십시오.');
-      return;
-    }
-
-    setIsEvaluating(true);
-    try {
-      const studentAnswer = `
-[1. 서술형 분석 답안]
-${currentSubmission.textContent}
-
-[2. 분석 스크립트 및 공식]
-${currentSubmission.codeContent}
-
-[3. 요약 결론 및 개선 대안]
-${currentSubmission.summaryContent}
-      `.trim();
-
-      const res = await fetch('/api/evaluate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scenario: {
-            code: selectedScenario.code,
-            moduleTitle: selectedScenario.title,
-            subTitle: selectedScenario.title,
-            keyword: selectedScenario.keyword,
-            scenarioText: selectedScenario.scenarioText
-          },
-          studentAnswer
-        })
-      });
-
-      const data = await res.json();
-      if (data.error) {
-        alert(`채점 실패: ${data.error}`);
-      } else {
-        handleUpdateSubmission({
-          evaluation: {
-            score: data.score ?? 85,
-            strengths: data.strengths ?? ['기본 논리가 구성됨'],
-            improvements: data.improvements ?? ['추가 정량 분석 권장'],
-            feedbackText: data.feedbackText ?? '평가 결과가 생성되었습니다.'
-          }
-        });
-      }
-    } catch (err) {
-      console.error('Evaluation error:', err);
-      handleUpdateSubmission({
-        evaluation: {
-          score: 88,
-          strengths: ['핵심 키워드 개념을 제대로 파악하여 문제 상황에 적용했습니다.', '분석 절차가 체계적입니다.'],
-          improvements: ['결론 도출 시 구체적인 통계적 검정 통계량(p-value/Cpk 등) 숫자를 더 명시하십시오.'],
-          feedbackText: '작성하신 답안은 문제 핵심 논리를 충실히 반영하고 있습니다. 실무 개선안에 정량 지표를 보완하면 최고점을 받을 수 있습니다.'
-        }
-      });
-    } finally {
-      setIsEvaluating(false);
-    }
+  const handleRemoveAttachedFile = (id: string) => {
+    setAttachedFiles(prev => prev.filter(f => f.id !== id));
   };
 
   const handleSubmitFinal = () => {
-    if (!currentSubmission.textContent && !currentSubmission.codeContent) {
-      alert('답안을 작성한 후 제출하십시오.');
+    if (!answerText.trim() && attachedFiles.length === 0) {
+      alert('답변을 작성하거나 첨부파일을 추가한 후 최종 제출해 주세요.');
       return;
     }
 
-    const nextSub = {
-      ...currentSubmission,
-      submittedAt: new Date().toLocaleString()
-    };
-    handleUpdateSubmission(nextSub);
-
     setFinalSubmitToast(true);
-    setTimeout(() => setFinalSubmitToast(false), 3000);
+    setTimeout(() => setFinalSubmitToast(false), 4000);
   };
 
   const handleInsertDataToEditor = (csvText: string) => {
     const formatted = `\n\n--- [첨부 데이터셋 참조] ---\n${csvText.slice(0, 300)}...\n`;
-    handleUpdateSubmission({
-      textContent: (currentSubmission.textContent || '') + formatted
-    });
+    setAnswerText(prev => prev + formatted);
   };
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col text-slate-900 font-sans antialiased">
-      {/* 1. TOP NOTICE SECTION */}
-      <HeaderNotice />
+      {/* Top Header & Notice */}
+      <HeaderNotice examinee={examinee} />
 
-      {/* Main Container */}
+      {/* Main Content */}
       <main className="flex-1 max-w-[1700px] w-full mx-auto p-3 md:p-5 flex flex-col gap-4 overflow-hidden">
-        {/* Toast Alert Banner */}
+        {/* Toast Alert Banner for Final Submission */}
         {finalSubmitToast && (
           <div className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg shadow-lg flex items-center justify-between text-xs font-bold animate-in fade-in slide-in-from-top-3">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5" />
-              <span>[{selectedScenario.code} {selectedScenario.keyword}] 검증 시험 답안이 성공적으로 최종 제출되었습니다!</span>
+              <span>[{examinee.name} 응시자] GDX 문제해결 역량 평가 답안 및 첨부자료가 최종 정상 제출되었습니다!</span>
             </div>
-            <button
-              onClick={() => setShowHistoryModal(true)}
-              className="px-3 py-1 bg-white text-emerald-800 rounded font-semibold hover:bg-emerald-50 transition-colors"
-            >
-              제출 기록 확인
-            </button>
           </div>
         )}
 
-        {/* Top Control Subbar */}
-        <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-xl border border-slate-200 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-700">현재 응시 시나리오:</span>
-            <span className="px-2 py-0.5 bg-blue-100 text-blue-800 font-bold rounded">
-              [{selectedScenario.code}] {selectedScenario.keyword}
-            </span>
-          </div>
-
-          <button
-            onClick={() => setShowHistoryModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors border border-slate-300"
-          >
-            <History className="w-3.5 h-3.5 text-slate-600" />
-            내 제출 기록 및 점수 목록 ({Object.keys(submissions).length}/65)
-          </button>
-        </div>
-
-        {/* 2. THREE COLUMN LAYOUT */}
+        {/* 3-Column Main Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 items-stretch min-h-[680px]">
-          {/* Left Column (4 Cols) */}
+          {/* Left Column: Assigned Scenario & Datasets (4 Cols) */}
           <div className="lg:col-span-4 h-full min-h-[550px]">
             <LeftColumn
-              modules={MODULES_DATA}
-              selectedScenario={selectedScenario}
-              onSelectScenario={setSelectedScenario}
+              scenario={assignedScenario.scenario}
+              moduleTitle={assignedScenario.moduleTitle}
+              examinee={examinee}
               onViewDataset={setActiveDataset}
+              onRegenerateScenario={handleRegenerateScenario}
             />
           </div>
 
-          {/* Middle Column (4 Cols) */}
+          {/* Middle Column: Answer Textarea & Attachments (4 Cols) */}
           <div className="lg:col-span-4 h-full min-h-[550px]">
             <MiddleColumn
-              scenario={selectedScenario}
-              submission={currentSubmission}
-              onUpdateSubmission={handleUpdateSubmission}
-              onEvaluate={handleEvaluate}
+              answerText={answerText}
+              onUpdateAnswer={setAnswerText}
+              attachedFiles={attachedFiles}
+              onAddAttachedFiles={handleAddAttachedFiles}
+              onRemoveAttachedFile={handleRemoveAttachedFile}
               onSubmitFinal={handleSubmitFinal}
-              isEvaluating={isEvaluating}
             />
           </div>
 
-          {/* Right Column (4 Cols) */}
+          {/* Right Column: Generative AI Assistant (4 Cols) */}
           <div className="lg:col-span-4 h-full min-h-[550px]">
-            <RightColumn currentScenario={selectedScenario} />
+            <RightColumn currentScenario={assignedScenario.scenario} />
           </div>
         </div>
       </main>
@@ -1737,74 +1501,6 @@ ${currentSubmission.summaryContent}
           onClose={() => setActiveDataset(null)}
           onInsertDataToEditor={handleInsertDataToEditor}
         />
-      )}
-
-      {/* Submissions History Modal */}
-      {showHistoryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
-              <div className="flex items-center gap-2">
-                <History className="w-5 h-5 text-blue-600" />
-                <h3 className="font-bold text-base text-slate-900">내 모듈 검증시험 제출 기록</h3>
-              </div>
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto flex-1 space-y-3">
-              {Object.keys(submissions).length > 0 ? (
-                Object.values(submissions).map((sub) => {
-                  const sc = MODULES_DATA.flatMap(m => m.subItems).find(s => s.id === sub.scenarioId);
-                  return (
-                    <div
-                      key={sub.scenarioId}
-                      className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between gap-3 text-xs"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-900 mb-0.5">
-                          [{sc?.code || sub.scenarioId}] {sc?.title} - {sc?.keyword}
-                        </div>
-                        <div className="text-slate-500 text-[11px]">
-                          제출 일시: {sub.submittedAt || '임시 저장중'}
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        {sub.evaluation ? (
-                          <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-md">
-                            {sub.evaluation.score}점 / 100점
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 bg-slate-200 text-slate-600 font-medium rounded">
-                            미채점
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="py-12 text-center text-slate-400 text-xs">
-                  아직 제출한 답안 기록이 없습니다. 가운데 답안 작성 공란에서 시험에 응시해 보세요.
-                </div>
-              )}
-            </div>
-
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="px-4 py-1.5 bg-blue-600 text-white font-bold text-xs rounded-lg hover:bg-blue-700"
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
