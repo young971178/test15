@@ -5,13 +5,11 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
-  FileSpreadsheet,
   Clock,
   Target,
   Calendar,
   CheckCircle2,
-  User,
-  ExternalLink
+  User  
 } from 'lucide-react';
 
 interface HeaderNoticeProps {
@@ -155,3 +153,4 @@ export const HeaderNotice: React.FC<HeaderNoticeProps> = ({
     </header>
   );
 };
+export default App;
