@@ -5,11 +5,13 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
+  FileSpreadsheet,
   Clock,
   Target,
   Calendar,
   CheckCircle2,
-  User
+  User,
+  ExternalLink
 } from 'lucide-react';
 
 interface HeaderNoticeProps {
@@ -19,12 +21,14 @@ interface HeaderNoticeProps {
   };
   currentAttempt?: number;
   maxAttempts?: number;
+  onSetAttempt?: (n: number) => void;
 }
 
-const HeaderNotice: React.FC<HeaderNoticeProps> = ({
+export const HeaderNotice: React.FC<HeaderNoticeProps> = ({
   examinee = { name: '손흥민', jobGroup: '제조직군' },
   currentAttempt = 1,
-  maxAttempts = 5
+  maxAttempts = 5,
+  onSetAttempt
 }) => {
   const [expanded, setExpanded] = useState(true);
   const remainingDays = 17;
@@ -151,5 +155,3 @@ const HeaderNotice: React.FC<HeaderNoticeProps> = ({
     </header>
   );
 };
-
-export default HeaderNotice;
